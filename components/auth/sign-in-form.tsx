@@ -45,44 +45,44 @@ export function SignInForm() {
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true)
+    setError(null)
+    
     try {
-      const result = await signIn("google", { 
-        callbackUrl: "/dashboard",
-        redirect: true
+      console.log("Starting Google sign-in process")
+      
+      // The most reliable method for OAuth providers
+      // is to allow NextAuth to handle the redirect
+      await signIn("google", { 
+        callbackUrl: window.location.origin + "/dashboard"
       })
       
-      if (result?.error) {
-        console.error("Error signing in with Google:", result.error)
-        setError("Failed to sign in with Google. Please try again.")
-      } else if (result?.url) {
-        window.location.href = result.url
-      }
+      // This code will not execute if the redirect happens correctly
+      console.log("This should not be seen if redirect worked")
     } catch (error) {
       console.error("Error signing in with Google:", error)
       setError("An unexpected error occurred. Please try again.")
-    } finally {
       setIsGoogleLoading(false)
     }
   }
 
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true)
+    setError(null)
+    
     try {
-      const result = await signIn("apple", { 
-        callbackUrl: "/dashboard",
-        redirect: true
+      console.log("Starting Apple sign-in process")
+      
+      // The most reliable method for OAuth providers
+      // is to allow NextAuth to handle the redirect
+      await signIn("apple", { 
+        callbackUrl: window.location.origin + "/dashboard"
       })
       
-      if (result?.error) {
-        console.error("Error signing in with Apple:", result.error)
-        setError("Failed to sign in with Apple. Please try again.")
-      } else if (result?.url) {
-        window.location.href = result.url
-      }
+      // This code will not execute if the redirect happens correctly
+      console.log("This should not be seen if redirect worked")
     } catch (error) {
       console.error("Error signing in with Apple:", error)
       setError("An unexpected error occurred. Please try again.")
-    } finally {
       setIsAppleLoading(false)
     }
   }
@@ -93,6 +93,8 @@ export function SignInForm() {
     try {
       console.log("Attempting to sign in with credentials:", data.email)
       
+      // For credentials, we need more control over the flow
+      // so we use redirect: false and handle it ourselves
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -106,7 +108,19 @@ export function SignInForm() {
       }
       
       console.log("Sign-in successful, redirecting to dashboard")
+      
+      // Use Next.js router for client-side navigation
+      // This gives a smoother experience than a full page reload
       router.push("/dashboard")
+      
+      // As a fallback, if router.push doesn't work for some reason
+      // we can use window.location after a short delay
+      setTimeout(() => {
+        if (window.location.pathname !== "/dashboard") {
+          console.log("Fallback redirection to dashboard")
+          window.location.href = window.location.origin + "/dashboard"
+        }
+      }, 1000)
     } catch (error) {
       console.error("Unexpected error during sign-in:", error)
       setError("An unexpected error occurred")

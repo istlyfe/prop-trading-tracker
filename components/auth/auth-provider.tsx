@@ -1,7 +1,12 @@
 "use client"
 
 import { SessionProvider } from "next-auth/react"
+import { AuthChecker } from "./auth-checker"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>
+  return (
+    <SessionProvider>
+      <AuthChecker>{children}</AuthChecker>
+    </SessionProvider>
+  )
 } 
