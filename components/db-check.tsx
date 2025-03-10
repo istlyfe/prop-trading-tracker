@@ -243,25 +243,49 @@ END $$;
               </Alert>
             )}
             
-            <div className="mt-4">
-              <p className="text-sm font-semibold">Quick Fix: Create Required Tables</p>
-              <p className="text-xs mt-1">Click the button below to copy SQL commands that you can run in your Supabase SQL Editor:</p>
-              <ol className="text-xs mt-2 list-decimal pl-5 space-y-1">
-                <li>Go to the Supabase dashboard and select your project</li>
-                <li>Click on "SQL Editor" in the left sidebar</li>
-                <li>Click "New Query"</li>
-                <li>Paste the SQL commands from the button below</li>
-                <li>Click "Run" to execute the commands</li>
-                <li><span className="font-medium">Note:</span> If you see errors like "relation already exists", that's OK! The script is designed to skip creating tables that already exist.</li>
-              </ol>
-              <Button 
-                onClick={createTables}
-                size="sm"
-                variant="outline"
-                className="mt-2 text-xs"
-              >
-                Copy SQL Commands
-              </Button>
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="text-sm font-semibold">Troubleshooting Steps:</p>
+                <ol className="text-xs mt-2 list-decimal pl-5 space-y-2">
+                  <li>
+                    <strong>Check your .env.local file</strong> - Make sure your Supabase URL and anon key are correct:
+                    <pre className="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs overflow-x-auto">
+                      NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co<br />
+                      NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+                    </pre>
+                  </li>
+                  <li>
+                    <strong>Check if Supabase is running</strong> - Go to your Supabase dashboard and make sure your project is active.
+                  </li>
+                  <li>
+                    <strong>Run the SQL commands</strong> - Use the button below to create the required tables.
+                  </li>
+                  <li>
+                    <strong>Restart your dev server</strong> - Sometimes a simple restart can fix connection issues.
+                  </li>
+                </ol>
+              </div>
+            
+              <div>
+                <p className="text-sm font-semibold">Create Required Tables:</p>
+                <p className="text-xs mt-1">Click the button below to copy SQL commands that you can run in your Supabase SQL Editor:</p>
+                <ol className="text-xs mt-2 list-decimal pl-5 space-y-1">
+                  <li>Go to the Supabase dashboard and select your project</li>
+                  <li>Click on "SQL Editor" in the left sidebar</li>
+                  <li>Click "New Query"</li>
+                  <li>Paste the SQL commands from the button below</li>
+                  <li>Click "Run" to execute the commands</li>
+                  <li><span className="font-medium">Note:</span> If you see errors like "relation already exists", that's OK! The script is designed to skip creating tables that already exist.</li>
+                </ol>
+                <Button 
+                  onClick={createTables}
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 text-xs"
+                >
+                  Copy SQL Commands
+                </Button>
+              </div>
             </div>
           </div>
           

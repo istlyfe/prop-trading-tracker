@@ -15,15 +15,17 @@ export async function verifySupabaseTables() {
     const keyLength = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length || 0
     console.log(`API Key provided: ${keyLength > 0 ? 'Yes' : 'No'} (length: ${keyLength})`)
     
-    // First, check if we can connect to Supabase at all with a simple query
+    // First, check if we can connect to Supabase at all with a simpler query
     try {
+      console.log('Testing basic Supabase connection...')
+      // Try to get the current timestamp from Supabase - a simple system table check
+      // We'll check the pg_stat_statements extension as it's typically available in Supabase
       const { data: healthData, error: healthError } = await supabase
-        .from('_migrations')
-        .select('count(*)')
+        .schema
+        .getTableInfo()
         .limit(1)
-        .single()
       
-      if (healthError && healthError.code !== 'PGRST116') {
+      if (healthError) {
         console.error('Basic connection to Supabase failed:', healthError)
         return { 
           success: false, 
