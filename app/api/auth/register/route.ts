@@ -3,6 +3,7 @@ import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { v4 as uuidv4 } from "uuid"
 import { getSupabase } from "@/lib/supabase"
+import { createClient } from '@supabase/supabase-js'
 
 // Validation schema
 const registerSchema = z.object({
@@ -75,7 +76,27 @@ export async function POST(request: Request) {
     
     // Insert new user
     try {
-      const { error: insertError } = await supabase
+      // Try to use service role if environment variables are available
+      let adminSupabase = supabase
+      
+      // Check if we have service role credentials
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      
+      if (serviceRoleKey && supabaseUrl) {
+        // Create admin client with service role to bypass RLS
+        console.log("Using service role for user creation")
+        adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        })
+      } else {
+        console.log("No service role available, using anon key")
+      }
+      
+      const { error: insertError } = await adminSupabase
         .from("users")
         .insert({
           id: userId,
@@ -102,7 +123,24 @@ export async function POST(request: Request) {
     
     // Create empty journal entry for new user
     try {
-      const { error: journalError } = await supabase
+      // Try to use service role if environment variables are available
+      let adminSupabase = supabase
+      
+      // Check if we have service role credentials
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      
+      if (serviceRoleKey && supabaseUrl) {
+        // Create admin client with service role to bypass RLS
+        adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        })
+      }
+      
+      const { error: journalError } = await adminSupabase
         .from("trading_journal")
         .insert({
           user_id: userId,

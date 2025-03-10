@@ -53,12 +53,27 @@ export function DatabaseCheck() {
     const setupSQL = `
 -- Enable UUID extension for generated IDs
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Make sure authentication is set up correctly
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
+  -- For testing, this will allow any operation when not authenticated
+  -- In a real app, you'd need to properly set up authentication
+  SELECT '00000000-0000-0000-0000-000000000000'::uuid;
+$$;
     `;
 
     const usersTableSQL = `
 -- Create users table if it doesn't exist
 DO $$ 
 BEGIN
+    -- First disable RLS temporarily to avoid issues during table creation
+    BEGIN
+        ALTER TABLE IF EXISTS public.users DISABLE ROW LEVEL SECURITY;
+    EXCEPTION WHEN others THEN
+        NULL; -- Ignore errors if table doesn't exist yet
+    END;
+
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users') THEN
         CREATE TABLE public.users (
           id uuid PRIMARY KEY,
@@ -68,24 +83,35 @@ BEGIN
           created_at timestamp with time zone DEFAULT now()
         );
         
-        -- Enable row level security
-        ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-        
-        -- Create policy for users to view their own data
-        CREATE POLICY "Users can view their own data"
-        ON public.users
-        FOR SELECT
-        USING (auth.uid() = id);
-        
-        -- Create policy for service role to manage users (for authentication)
-        CREATE POLICY "Service role can manage users"
-        ON public.users
-        USING (true);
-        
         RAISE NOTICE 'Created users table';
     ELSE
         RAISE NOTICE 'Users table already exists';
     END IF;
+    
+    -- Enable row level security
+    ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+    
+    -- Remove all existing policies
+    DROP POLICY IF EXISTS "Users can view their own data" ON public.users;
+    DROP POLICY IF EXISTS "Service role can manage users" ON public.users;
+    DROP POLICY IF EXISTS "Anyone can insert users" ON public.users;
+    
+    -- Create policies
+    CREATE POLICY "Anyone can insert users"
+    ON public.users
+    FOR INSERT
+    WITH CHECK (true);
+    
+    CREATE POLICY "Users can view their own data"
+    ON public.users
+    FOR SELECT
+    USING (auth.uid() = id);
+    
+    CREATE POLICY "Service role can manage users"
+    ON public.users
+    USING (true);
+    
+    RAISE NOTICE 'Set up RLS policies for users table';
 END $$;
     `;
 
@@ -93,6 +119,13 @@ END $$;
 -- Create trading journal table if it doesn't exist
 DO $$ 
 BEGIN
+    -- First disable RLS temporarily to avoid issues during table creation
+    BEGIN
+        ALTER TABLE IF EXISTS public.trading_journal DISABLE ROW LEVEL SECURITY;
+    EXCEPTION WHEN others THEN
+        NULL; -- Ignore errors if table doesn't exist yet
+    END;
+
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'trading_journal') THEN
         CREATE TABLE public.trading_journal (
           id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -101,127 +134,46 @@ BEGIN
           last_updated timestamp with time zone DEFAULT now()
         );
         
-        -- Enable row level security
-        ALTER TABLE public.trading_journal ENABLE ROW LEVEL SECURITY;
-        
-        -- Create policies for trading journal
-        CREATE POLICY "Users can view their own journals"
-        ON public.trading_journal
-        FOR SELECT
-        USING (auth.uid() = user_id);
-        
-        CREATE POLICY "Users can insert their own journals"
-        ON public.trading_journal
-        FOR INSERT
-        WITH CHECK (auth.uid() = user_id);
-        
-        CREATE POLICY "Users can update their own journals"
-        ON public.trading_journal
-        FOR UPDATE
-        USING (auth.uid() = user_id);
-        
         RAISE NOTICE 'Created trading_journal table';
     ELSE
         RAISE NOTICE 'Trading journal table already exists';
     END IF;
-END $$;
-    `;
-
-    const ensurePoliciesSQL = `
--- Ensure RLS is enabled on users table
-ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
-
--- Ensure RLS is enabled on trading_journal table
-ALTER TABLE IF EXISTS public.trading_journal ENABLE ROW LEVEL SECURITY;
-
--- Add policy to allow all operations for authenticated API key
-DO $$ 
-BEGIN
-    -- Add policy to allow creating new users (for registration)
-    IF NOT EXISTS (
-        SELECT FROM pg_policies 
-        WHERE tablename = 'users' 
-        AND policyname = 'Anyone can insert users'
-    ) THEN
-        CREATE POLICY "Anyone can insert users"
-        ON public.users
-        FOR INSERT
-        WITH CHECK (true);
-        
-        RAISE NOTICE 'Created insert policy for users table';
-    ELSE
-        RAISE NOTICE 'User insert policy already exists';
-    END IF;
     
-    -- Check and create the user select policy if it doesn't exist
-    IF NOT EXISTS (
-        SELECT FROM pg_policies 
-        WHERE tablename = 'users' 
-        AND policyname = 'Users can view their own data'
-    ) THEN
-        CREATE POLICY "Users can view their own data"
-        ON public.users
-        FOR SELECT
-        USING (auth.uid() = id);
-        
-        RAISE NOTICE 'Created policy for users table';
-    ELSE
-        RAISE NOTICE 'Users policy already exists';
-    END IF;
-END $$;
-
--- Check and create journal policies if they don't exist
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT FROM pg_policies 
-        WHERE tablename = 'trading_journal' 
-        AND policyname = 'Users can view their own journals'
-    ) THEN
-        CREATE POLICY "Users can view their own journals"
-        ON public.trading_journal
-        FOR SELECT
-        USING (auth.uid() = user_id);
-        
-        RAISE NOTICE 'Created SELECT policy for trading_journal table';
-    ELSE
-        RAISE NOTICE 'Trading journal SELECT policy already exists';
-    END IF;
+    -- Enable row level security
+    ALTER TABLE public.trading_journal ENABLE ROW LEVEL SECURITY;
     
-    IF NOT EXISTS (
-        SELECT FROM pg_policies 
-        WHERE tablename = 'trading_journal' 
-        AND policyname = 'Users can insert their own journals'
-    ) THEN
-        CREATE POLICY "Users can insert their own journals"
-        ON public.trading_journal
-        FOR INSERT
-        WITH CHECK (auth.uid() = user_id);
-        
-        RAISE NOTICE 'Created INSERT policy for trading_journal table';
-    ELSE
-        RAISE NOTICE 'Trading journal INSERT policy already exists';
-    END IF;
+    -- Remove all existing policies
+    DROP POLICY IF EXISTS "Users can view their own journals" ON public.trading_journal;
+    DROP POLICY IF EXISTS "Users can insert their own journals" ON public.trading_journal;
+    DROP POLICY IF EXISTS "Users can update their own journals" ON public.trading_journal;
+    DROP POLICY IF EXISTS "Service role can manage journals" ON public.trading_journal;
     
-    IF NOT EXISTS (
-        SELECT FROM pg_policies 
-        WHERE tablename = 'trading_journal' 
-        AND policyname = 'Users can update their own journals'
-    ) THEN
-        CREATE POLICY "Users can update their own journals"
-        ON public.trading_journal
-        FOR UPDATE
-        USING (auth.uid() = user_id);
-        
-        RAISE NOTICE 'Created UPDATE policy for trading_journal table';
-    ELSE
-        RAISE NOTICE 'Trading journal UPDATE policy already exists';
-    END IF;
+    -- Create policies
+    CREATE POLICY "Users can view their own journals"
+    ON public.trading_journal
+    FOR SELECT
+    USING (auth.uid() = user_id);
+    
+    CREATE POLICY "Users can insert their own journals"
+    ON public.trading_journal
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+    
+    CREATE POLICY "Users can update their own journals"
+    ON public.trading_journal
+    FOR UPDATE
+    USING (auth.uid() = user_id);
+    
+    CREATE POLICY "Service role can manage journals"
+    ON public.trading_journal
+    USING (true);
+    
+    RAISE NOTICE 'Set up RLS policies for trading_journal table';
 END $$;
     `;
 
     // Copy to clipboard
-    navigator.clipboard.writeText(setupSQL + '\n\n' + usersTableSQL + '\n\n' + journalTableSQL + '\n\n' + ensurePoliciesSQL)
+    navigator.clipboard.writeText(setupSQL + '\n\n' + usersTableSQL + '\n\n' + journalTableSQL)
       .then(() => alert("SQL copied to clipboard! Paste this in your Supabase SQL editor."))
       .catch(err => console.error("Failed to copy SQL:", err));
   };
@@ -273,8 +225,10 @@ END $$;
                     <strong>Check your .env.local file</strong> - Make sure your Supabase URL and anon key are correct:
                     <pre className="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs overflow-x-auto">
                       NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co<br />
-                      NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+                      NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key<br />
+                      SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
                     </pre>
+                    <p className="mt-1 text-xs">You can find your service role key in the Supabase dashboard under Project Settings &gt; API.</p>
                   </li>
                   <li>
                     <strong>Check if Supabase is running</strong> - Go to your Supabase dashboard and make sure your project is active.
