@@ -77,6 +77,11 @@ BEGIN
         FOR SELECT
         USING (auth.uid() = id);
         
+        -- Create policy for service role to manage users (for authentication)
+        CREATE POLICY "Service role can manage users"
+        ON public.users
+        USING (true);
+        
         RAISE NOTICE 'Created users table';
     ELSE
         RAISE NOTICE 'Users table already exists';
@@ -129,9 +134,26 @@ ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
 -- Ensure RLS is enabled on trading_journal table
 ALTER TABLE IF EXISTS public.trading_journal ENABLE ROW LEVEL SECURITY;
 
--- Check and create the user policy if it doesn't exist
+-- Add policy to allow all operations for authenticated API key
 DO $$ 
 BEGIN
+    -- Add policy to allow creating new users (for registration)
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'users' 
+        AND policyname = 'Anyone can insert users'
+    ) THEN
+        CREATE POLICY "Anyone can insert users"
+        ON public.users
+        FOR INSERT
+        WITH CHECK (true);
+        
+        RAISE NOTICE 'Created insert policy for users table';
+    ELSE
+        RAISE NOTICE 'User insert policy already exists';
+    END IF;
+    
+    -- Check and create the user select policy if it doesn't exist
     IF NOT EXISTS (
         SELECT FROM pg_policies 
         WHERE tablename = 'users' 

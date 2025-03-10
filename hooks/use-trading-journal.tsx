@@ -7,7 +7,7 @@ import { parseCSV } from '@/lib/csv-parser'
 import { DailyJournalEntry, TradingJournalData, TradeEntry } from '@/types/journal'
 import { getSupabase } from '@/lib/supabase'
 
-const STORAGE_KEY = 'prop-trading-journal-data'
+const STORAGE_KEY_PREFIX = 'prop-trading-journal-data'
 
 interface TradingJournalContextValue {
   journalData: TradingJournalData
@@ -32,25 +32,38 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
   const { data: session } = useSession()
   const [journalData, setJournalData] = useState<TradingJournalData>(defaultJournalData)
   const [isLoading, setIsLoading] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  // Get user-specific storage key
+  const getStorageKey = (userId?: string | null) => {
+    return userId 
+      ? `${STORAGE_KEY_PREFIX}-${userId}` 
+      : STORAGE_KEY_PREFIX
+  }
 
   // Load data on mount or when session changes
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
+      
+      const userId = session?.user?.id || null
+      // Store the current user ID for later comparison
+      setCurrentUserId(userId)
+      
       try {
         // If user is authenticated, try to load from Supabase
-        if (session?.user?.id) {
+        if (userId) {
           const supabase = getSupabase()
           const { data, error } = await supabase
             .from('trading_journal')
             .select('data')
-            .eq('user_id', session.user.id)
+            .eq('user_id', userId)
             .single()
             
           if (error) {
             console.error('Error loading from Supabase:', error)
-            // If error, fall back to localStorage
-            loadFromLocalStorage()
+            // If error, fall back to user-specific localStorage
+            loadFromLocalStorage(userId)
           } else if (data?.data) {
             // If data exists in Supabase, use it
             try {
@@ -58,30 +71,36 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
                 ? JSON.parse(data.data) 
                 : data.data
               
+              console.log(`Loaded data from Supabase for user ${userId}`)
               setJournalData(parsedData)
             } catch (parseError) {
               console.error('Error parsing Supabase data:', parseError)
               setJournalData(defaultJournalData)
             }
           } else {
-            // If no data in Supabase, try localStorage
-            loadFromLocalStorage()
+            // If no data in Supabase, try user-specific localStorage
+            console.log(`No data in Supabase for user ${userId}, checking localStorage`)
+            loadFromLocalStorage(userId)
           }
         } else {
-          // Not authenticated, use localStorage
-          loadFromLocalStorage()
+          // Not authenticated, use generic localStorage
+          console.log('No authenticated user, using generic localStorage')
+          loadFromLocalStorage(null)
         }
       } catch (error) {
         console.error('Error initializing journal data:', error)
-        loadFromLocalStorage()
+        loadFromLocalStorage(userId)
       } finally {
         setIsLoading(false)
       }
     }
     
-    const loadFromLocalStorage = () => {
+    const loadFromLocalStorage = (userId: string | null) => {
       if (typeof window !== 'undefined') {
-        const storedData = localStorage.getItem(STORAGE_KEY)
+        const storageKey = getStorageKey(userId)
+        console.log(`Loading from localStorage with key: ${storageKey}`)
+        
+        const storedData = localStorage.getItem(storageKey)
         if (storedData) {
           try {
             setJournalData(JSON.parse(storedData))
@@ -89,6 +108,10 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
             console.error('Error parsing stored journal data:', error)
             setJournalData(defaultJournalData)
           }
+        } else {
+          // No data for this user, start with empty state
+          console.log('No existing data in localStorage, using default empty state')
+          setJournalData(defaultJournalData)
         }
       }
     }
@@ -99,20 +122,23 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
   // Save to storage whenever data changes
   useEffect(() => {
     if (!isLoading) {
-      // Save to localStorage
+      // Save to appropriate localStorage key
       if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(journalData))
+        const storageKey = getStorageKey(currentUserId)
+        console.log(`Saving to localStorage with key: ${storageKey}`)
+        localStorage.setItem(storageKey, JSON.stringify(journalData))
       }
       
       // If authenticated, also save to Supabase
-      if (session?.user?.id) {
+      if (currentUserId) {
         const saveToSupabase = async () => {
           try {
+            console.log(`Saving to Supabase for user ${currentUserId}`)
             const supabase = getSupabase()
             const { error } = await supabase
               .from('trading_journal')
               .upsert({
-                user_id: session.user.id,
+                user_id: currentUserId,
                 data: journalData,
                 last_updated: new Date().toISOString(),
               })
@@ -128,7 +154,7 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
         saveToSupabase()
       }
     }
-  }, [journalData, isLoading, session])
+  }, [journalData, isLoading, currentUserId])
 
   const importCSV = (csvContent: string) => {
     try {
@@ -328,11 +354,11 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
     
     // Clear localStorage
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(getStorageKey(currentUserId))
     }
     
     // If authenticated, also clear from Supabase
-    if (session?.user?.id) {
+    if (currentUserId) {
       try {
         const supabase = getSupabase()
         const { error } = await supabase
@@ -341,7 +367,7 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
             data: defaultJournalData,
             last_updated: new Date().toISOString(),
           })
-          .eq('user_id', session.user.id)
+          .eq('user_id', currentUserId)
           
         if (error) {
           console.error('Error clearing data in Supabase:', error)
