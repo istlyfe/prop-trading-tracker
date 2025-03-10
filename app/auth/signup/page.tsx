@@ -1,4 +1,5 @@
 import { SignUpForm } from "@/components/auth/sign-up-form"
+import { DatabaseCheck } from "@/components/db-check"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export default function SignUpPage() {
   return (
     <div className="flex min-h-screen items-center justify-center py-12">
       <div className="mx-auto grid w-full max-w-md gap-6">
+        <DatabaseCheck />
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight">
             Create a new account

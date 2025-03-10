@@ -1,7 +1,10 @@
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle, AlertTriangle, RefreshCw } from "lucide-react"
 
 export const Icons = {
   spinner: Loader2,
+  alertCircle: AlertCircle,
+  alertTriangle: AlertTriangle,
+  refresh: RefreshCw,
   google: (props: React.SVGProps<SVGSVGElement>) => (
     <svg
       aria-hidden="true"

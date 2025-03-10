@@ -19,6 +19,7 @@ import {
 import { Icons } from "@/components/icons"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const SignUpSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -36,6 +37,7 @@ export function SignUpForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
 
   const form = useForm<SignUpValues>({
     resolver: zodResolver(SignUpSchema),
@@ -49,6 +51,7 @@ export function SignUpForm() {
   const onSubmit = async (data: SignUpValues) => {
     setIsLoading(true)
     setError(null)
+    setErrorDetails(null)
     
     try {
       const response = await fetch('/api/auth/register', {
@@ -62,7 +65,10 @@ export function SignUpForm() {
       const result = await response.json()
       
       if (!response.ok) {
-        throw new Error(result.message || "Something went wrong")
+        setError(result.message || "Something went wrong")
+        setErrorDetails(result.details || null)
+        setIsLoading(false)
+        return
       }
       
       // Sign in the user after successful registration
@@ -74,6 +80,7 @@ export function SignUpForm() {
 
       if (signInResult?.error) {
         setError("Failed to sign in after registration")
+        setIsLoading(false)
         return
       }
 
@@ -85,7 +92,6 @@ export function SignUpForm() {
       } else {
         setError("An unknown error occurred")
       }
-    } finally {
       setIsLoading(false)
     }
   }
@@ -137,9 +143,18 @@ export function SignUpForm() {
           />
           
           {error && (
-            <div className="p-3 text-sm text-white bg-red-500 rounded">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <Icons.alertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription className="mt-1">
+                {error}
+                {errorDetails && (
+                  <div className="mt-2 text-xs opacity-80">
+                    Details: {errorDetails}
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
           
           <Button type="submit" className="w-full" disabled={isLoading}>

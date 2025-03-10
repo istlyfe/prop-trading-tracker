@@ -33,23 +33,35 @@ export async function POST(request: Request) {
     const { name, email, password } = validation.data
     
     // Check if user with this email already exists
-    const { data: existingUser, error: checkError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single()
-    
-    if (existingUser) {
+    try {
+      const { data: existingUser, error: checkError } = await supabase
+        .from("users")
+        .select("id, email")
+        .eq("email", email)
+        .maybeSingle()
+      
+      // Log details for debugging
+      console.log("Existing user check response:", { existingUser, error: checkError ? { code: checkError.code, message: checkError.message } : null })
+      
+      if (existingUser) {
+        return NextResponse.json(
+          { message: "User with this email already exists" },
+          { status: 409 }
+        )
+      }
+      
+      // PGRST116 is "no rows returned" which is expected when the user doesn't exist
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error("Database error checking for existing user:", checkError)
+        return NextResponse.json(
+          { message: "Error checking for existing user", details: checkError.message },
+          { status: 500 }
+        )
+      }
+    } catch (err) {
+      console.error("Unexpected error during user existence check:", err)
       return NextResponse.json(
-        { message: "User with this email already exists" },
-        { status: 409 }
-      )
-    }
-    
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error("Database error checking for existing user:", checkError)
-      return NextResponse.json(
-        { message: "Error checking for existing user" },
+        { message: "Error checking for existing user", details: "Unexpected error occurred" },
         { status: 500 }
       )
     }
@@ -62,37 +74,50 @@ export async function POST(request: Request) {
     const userId = uuidv4()
     
     // Insert new user
-    const { error: insertError } = await supabase
-      .from("users")
-      .insert({
-        id: userId,
-        name,
-        email,
-        password: hashedPassword,
-        created_at: new Date().toISOString(),
-      })
-    
-    if (insertError) {
-      console.error("Error creating user:", insertError)
+    try {
+      const { error: insertError } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          name,
+          email,
+          password: hashedPassword,
+          created_at: new Date().toISOString(),
+        })
+      
+      if (insertError) {
+        console.error("Error creating user:", insertError)
+        return NextResponse.json(
+          { message: "Error creating user", details: insertError.message },
+          { status: 500 }
+        )
+      }
+    } catch (err) {
+      console.error("Unexpected error during user creation:", err)
       return NextResponse.json(
-        { message: "Error creating user" },
+        { message: "Error creating user", details: "Unexpected error occurred" },
         { status: 500 }
       )
     }
     
     // Create empty journal entry for new user
-    const { error: journalError } = await supabase
-      .from("trading_journal")
-      .insert({
-        user_id: userId,
-        data: JSON.stringify({ entries: [], lastUpdated: new Date().toISOString() }),
-        last_updated: new Date().toISOString(),
-      })
-    
-    if (journalError) {
-      console.error("Error creating journal:", journalError)
+    try {
+      const { error: journalError } = await supabase
+        .from("trading_journal")
+        .insert({
+          user_id: userId,
+          data: JSON.stringify({ entries: [], lastUpdated: new Date().toISOString() }),
+          last_updated: new Date().toISOString(),
+        })
+      
+      if (journalError) {
+        console.error("Error creating journal:", journalError)
+        // Don't fail registration if journal creation fails
+        // We'll handle this gracefully
+      }
+    } catch (err) {
+      console.error("Unexpected error during journal creation:", err)
       // Don't fail registration if journal creation fails
-      // We'll handle this gracefully
     }
     
     return NextResponse.json(
