@@ -76,15 +76,15 @@ export function TradingJournal() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5" />
-                Sample CSV
+                Sample CSV Templates
               </CardTitle>
               <CardDescription>
-                Download a sample CSV template for your trading data
+                Download sample CSV templates for your trading data
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <Button variant="outline" className="w-full" onClick={() => {
-                // Create sample CSV content
+                // Create sample CSV content for standard format
                 const sampleCSV = `Date,Symbol,Contract,Direction,EntryPrice,ExitPrice,Quantity,PnL,Fees,Notes
 ${new Date().toISOString().split('T')[0]},ES,ESZ23,Long,4500.00,4510.00,1,1000.00,4.50,Morning session trade
 ${new Date().toISOString().split('T')[0]},NQ,NQZ23,Short,15600.00,15550.00,1,1000.00,4.50,Afternoon reversal
@@ -101,7 +101,30 @@ ${new Date().toISOString().split('T')[0]},NQ,NQZ23,Short,15600.00,15550.00,1,100
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
               }}>
-                Download Sample CSV
+                Download Standard CSV Template
+              </Button>
+              
+              <Button variant="outline" className="w-full" onClick={() => {
+                // Create sample CSV content for Tradovate format
+                const sampleTradovateCSV = `orderId,Account,Order ID,B/S,Contract,Product,Product Description,avgPrice,filledQty,Fill Time,lastCommandId,Status,_priceFormat,_priceFormatType,_tickSize,spreadDefinitionId,Version ID,Timestamp,Date,Quantity,Text,Type,Limit Price,Stop Price,decimalLimit,decimalStop,Filled Qty,Avg Fill Price,decimalFillAvg
+188886840004,FTDYFG50399595700000009,188886840004, Buy,ESH5,ES,E-Mini S&P 500,4500.25,1,03/09/2025 10:33:21,188886840004, Filled,-2,0,0.25,,188886840004,03/09/2025 10:33:21,3/9/25,1,Chart, Market,,,,,1,4500.25,4500.25
+188886840014,FTDYFG50399595700000009,188886840014, Sell,ESH5,ES,E-Mini S&P 500,4510.50,1,03/09/2025 11:36:42,188886840014, Filled,-2,0,0.25,,188886840014,03/09/2025 11:33:57,3/9/25,1,Chart, Market,,,,,,4510.50,4510.50
+188886840017,FTDYFG50399595700000009,188886840017, Buy,NQH5,NQ,E-Mini NASDAQ 100,15600.50,1,03/09/2025 13:34:18,188886840017, Filled,-2,0,0.25,,188886840017,03/09/2025 13:34:18,3/9/25,1,Chart, Market,,,,,1,15600.50,15600.50
+188886840022,FTDYFG50399595700000009,188886840022, Sell,NQH5,NQ,E-Mini NASDAQ 100,15550.25,1,03/09/2025 14:15:42,188886840022, Filled,-2,0,0.25,,188886840022,03/09/2025 14:15:42,3/9/25,1,Chart, Market,,,,,,15550.25,15550.25
+`;
+                
+                // Create and download the file
+                const blob = new Blob([sampleTradovateCSV], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sample_tradovate_export.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+              }}>
+                Download Tradovate CSV Sample
               </Button>
             </CardContent>
           </Card>

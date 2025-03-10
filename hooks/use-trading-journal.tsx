@@ -54,7 +54,22 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
 
   const importCSV = (csvContent: string) => {
     try {
-      const parsedEntries = parseCSV(csvContent)
+      // Check if it's already a parsed JSON array of entries
+      let parsedEntries: DailyJournalEntry[] = []
+      
+      try {
+        // First try parsing as JSON (pre-parsed entries)
+        const jsonData = JSON.parse(csvContent)
+        if (Array.isArray(jsonData)) {
+          parsedEntries = jsonData
+        } else {
+          // Use standard CSV parser
+          parsedEntries = parseCSV(csvContent)
+        }
+      } catch (e) {
+        // If JSON parsing fails, use standard CSV parser
+        parsedEntries = parseCSV(csvContent)
+      }
       
       // Merge with existing entries
       const existingEntries = [...journalData.entries]
