@@ -1,16 +1,35 @@
-import Link from 'next/link'
-
-export default function Custom404() {
+// Static page with no imports
+function Custom404() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 py-12 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">404</h1>
-      <h2 className="text-xl">Page not found</h2>
-      <p className="max-w-md mb-4">
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60vh',
+      gap: '1rem',
+      padding: '3rem',
+      textAlign: 'center'
+    }}>
+      <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>404</h1>
+      <h2 style={{ fontSize: '1.25rem' }}>Page not found</h2>
+      <p style={{ maxWidth: '30rem', marginBottom: '1rem' }}>
         Sorry, we couldn't find the page you're looking for.
       </p>
-      <Link href="/dashboard" className="px-4 py-2 bg-primary text-primary-foreground rounded-md">
+      <a 
+        href="/dashboard" 
+        style={{
+          padding: '0.5rem 1rem',
+          backgroundColor: '#000',
+          color: '#fff',
+          borderRadius: '0.375rem',
+          textDecoration: 'none'
+        }}
+      >
         Go back to dashboard
-      </Link>
+      </a>
     </div>
   )
-} 
+}
+
+export default Custom404 

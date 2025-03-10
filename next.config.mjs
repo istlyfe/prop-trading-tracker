@@ -20,6 +20,32 @@ const nextConfig = {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
+    missingSuspenseWithCSRBailout: false,
+    ppr: false,
+    serverActions: true,
+  },
+  productionBrowserSourceMaps: true,
+  output: "export",
+  trailingSlash: true,
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        destination: '/:path*',
+        missing: [
+          { type: 'page', value: '/:path*' },
+        ],
+      },
+    ]
+  },
+  async redirects() {
+    return [
+      {
+        source: '/_not-found',
+        destination: '/404',
+        permanent: false,
+      },
+    ]
   },
 }
 
