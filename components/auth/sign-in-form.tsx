@@ -53,7 +53,7 @@ export function SignInForm() {
       // The most reliable method for OAuth providers
       // is to allow NextAuth to handle the redirect
       await signIn("google", { 
-        callbackUrl: window.location.origin + "/dashboard"
+        callbackUrl: window.location.origin + "/dashboard?success=true"
       })
       
       // This code will not execute if the redirect happens correctly
@@ -75,7 +75,7 @@ export function SignInForm() {
       // The most reliable method for OAuth providers
       // is to allow NextAuth to handle the redirect
       await signIn("apple", { 
-        callbackUrl: window.location.origin + "/dashboard"
+        callbackUrl: window.location.origin + "/dashboard?success=true"
       })
       
       // This code will not execute if the redirect happens correctly
@@ -111,14 +111,14 @@ export function SignInForm() {
       
       // Use Next.js router for client-side navigation
       // This gives a smoother experience than a full page reload
-      router.push("/dashboard")
+      router.push("/dashboard?success=true")
       
       // As a fallback, if router.push doesn't work for some reason
       // we can use window.location after a short delay
       setTimeout(() => {
         if (window.location.pathname !== "/dashboard") {
           console.log("Fallback redirection to dashboard")
-          window.location.href = window.location.origin + "/dashboard"
+          window.location.href = window.location.origin + "/dashboard?success=true"
         }
       }, 1000)
     } catch (error) {
