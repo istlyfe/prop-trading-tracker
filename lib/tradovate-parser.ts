@@ -17,6 +17,28 @@ interface TradovateOrder {
   quantity: number
 }
 
+// Contract specification multipliers for accurate P&L calculations
+const CONTRACT_MULTIPLIERS: Record<string, number> = {
+  // Stock index futures
+  'NQ': 20,      // NASDAQ-100 E-mini ($20 per point)
+  'ES': 50,      // S&P 500 E-mini ($50 per point)
+  'MES': 5,      // Micro E-mini S&P 500 ($5 per point)
+  'MNQ': 2,      // Micro E-mini NASDAQ ($2 per point)
+  'YM': 5,       // Dow E-mini ($5 per point)
+  'RTY': 50,     // Russell 2000 E-mini ($50 per point)
+  
+  // Commodities
+  'CL': 1000,    // Crude Oil ($1000 per $1)
+  'GC': 100,     // Gold ($100 per $1)
+  'SI': 5000,    // Silver ($5000 per $1)
+  'ZC': 50,      // Corn ($50 per cent)
+  'ZS': 50,      // Soybeans ($50 per cent)
+  'ZW': 50,      // Wheat ($50 per cent)
+  
+  // Default multiplier
+  'DEFAULT': 1,  // Will be used for any contract not explicitly listed
+}
+
 export function parseTradovateCSV(csvContent: string): DailyJournalEntry[] {
   const lines = csvContent.split('\n')
   
@@ -70,6 +92,12 @@ export function parseTradovateCSV(csvContent: string): DailyJournalEntry[] {
       new Date(a.fillTime).getTime() - new Date(b.fillTime).getTime()
     )
     
+    // Get the base product (like ES, NQ) from the contract (like ESH4, NQM4)
+    const baseProduct = contractOrders[0].product || contract.slice(0, 2)
+    
+    // Get multiplier for this contract type
+    const multiplier = CONTRACT_MULTIPLIERS[baseProduct] || CONTRACT_MULTIPLIERS.DEFAULT
+    
     // Process buy/sell pairs
     for (let i = 0; i < contractOrders.length - 1; i++) {
       const orderA = contractOrders[i]
@@ -86,15 +114,13 @@ export function parseTradovateCSV(csvContent: string): DailyJournalEntry[] {
         const entryOrder = isBuyFirst ? orderA : orderB
         const exitOrder = isBuyFirst ? orderB : orderA
         
-        // Calculate P&L
-        const direction = isBuyFirst ? 'Long' : 'Short'
-        let pnl = 0
+        // Calculate price difference in points
+        const priceDifference = isBuyFirst
+          ? exitOrder.avgPrice - entryOrder.avgPrice
+          : entryOrder.avgPrice - exitOrder.avgPrice
         
-        if (direction === 'Long') {
-          pnl = (exitOrder.avgPrice - entryOrder.avgPrice) * Math.min(entryOrder.filledQty, exitOrder.filledQty)
-        } else {
-          pnl = (entryOrder.avgPrice - exitOrder.avgPrice) * Math.min(entryOrder.filledQty, exitOrder.filledQty)
-        }
+        // Calculate P&L with proper contract multiplier
+        const pnl = priceDifference * multiplier * Math.min(entryOrder.filledQty, exitOrder.filledQty)
         
         // Extract date from fill time (MM/DD/YYYY HH:MM:SS format)
         const dateParts = entryOrder.fillTime.split(' ')[0].split('/')
@@ -106,12 +132,12 @@ export function parseTradovateCSV(csvContent: string): DailyJournalEntry[] {
           date: isoDate + 'T' + entryOrder.fillTime.split(' ')[1], // Combine date and time
           symbol: entryOrder.product,
           contract: entryOrder.contract,
-          direction,
+          direction: isBuyFirst ? 'Long' : 'Short',
           entryPrice: entryOrder.avgPrice,
           exitPrice: exitOrder.avgPrice,
           quantity: Math.min(entryOrder.filledQty, exitOrder.filledQty),
           pnl: Number(pnl.toFixed(2)),
-          notes: `${entryOrder.productDesc} trade`
+          notes: `${entryOrder.productDesc} ${isBuyFirst ? 'Long' : 'Short'} - Price diff: ${Math.abs(priceDifference).toFixed(2)} points`
         })
         
         // Skip the next order since we used it in this pair
