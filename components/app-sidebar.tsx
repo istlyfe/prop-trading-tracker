@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, Calculator, CreditCard, LayoutDashboard, LogOut, Settings, User, X } from "lucide-react"
+import { BarChart3, Calculator, CreditCard, LayoutDashboard, LogOut, Settings, User, X, FileSpreadsheet } from "lucide-react"
 
 import {
   Sidebar,
@@ -95,6 +95,14 @@ export function AppSidebar() {
               <Link href="/consistency" onClick={handleLinkClick}>
                 <Calculator className="h-4 w-4" />
                 <span>Consistency</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={isActive("/journal")}>
+              <Link href="/journal" onClick={handleLinkClick}>
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Journal</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
