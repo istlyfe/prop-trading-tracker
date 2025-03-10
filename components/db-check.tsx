@@ -56,56 +56,150 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
     `;
 
     const usersTableSQL = `
--- Create users table
-CREATE TABLE public.users (
-  id uuid PRIMARY KEY,
-  email text UNIQUE NOT NULL,
-  name text,
-  password text,
-  created_at timestamp with time zone DEFAULT now()
-);
-
--- Enable row level security
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-
--- Create policy for users to view their own data
-CREATE POLICY "Users can view their own data"
-ON public.users
-FOR SELECT
-USING (auth.uid() = id);
+-- Create users table if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users') THEN
+        CREATE TABLE public.users (
+          id uuid PRIMARY KEY,
+          email text UNIQUE NOT NULL,
+          name text,
+          password text,
+          created_at timestamp with time zone DEFAULT now()
+        );
+        
+        -- Enable row level security
+        ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+        
+        -- Create policy for users to view their own data
+        CREATE POLICY "Users can view their own data"
+        ON public.users
+        FOR SELECT
+        USING (auth.uid() = id);
+        
+        RAISE NOTICE 'Created users table';
+    ELSE
+        RAISE NOTICE 'Users table already exists';
+    END IF;
+END $$;
     `;
 
     const journalTableSQL = `
--- Create trading journal table
-CREATE TABLE public.trading_journal (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id uuid REFERENCES public.users(id) NOT NULL,
-  data jsonb NOT NULL,
-  last_updated timestamp with time zone DEFAULT now()
-);
+-- Create trading journal table if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'trading_journal') THEN
+        CREATE TABLE public.trading_journal (
+          id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id uuid REFERENCES public.users(id) NOT NULL,
+          data jsonb NOT NULL,
+          last_updated timestamp with time zone DEFAULT now()
+        );
+        
+        -- Enable row level security
+        ALTER TABLE public.trading_journal ENABLE ROW LEVEL SECURITY;
+        
+        -- Create policies for trading journal
+        CREATE POLICY "Users can view their own journals"
+        ON public.trading_journal
+        FOR SELECT
+        USING (auth.uid() = user_id);
+        
+        CREATE POLICY "Users can insert their own journals"
+        ON public.trading_journal
+        FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+        
+        CREATE POLICY "Users can update their own journals"
+        ON public.trading_journal
+        FOR UPDATE
+        USING (auth.uid() = user_id);
+        
+        RAISE NOTICE 'Created trading_journal table';
+    ELSE
+        RAISE NOTICE 'Trading journal table already exists';
+    END IF;
+END $$;
+    `;
 
--- Enable row level security
-ALTER TABLE public.trading_journal ENABLE ROW LEVEL SECURITY;
+    const ensurePoliciesSQL = `
+-- Ensure RLS is enabled on users table
+ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
 
--- Create policies for trading journal
-CREATE POLICY "Users can view their own journals"
-ON public.trading_journal
-FOR SELECT
-USING (auth.uid() = user_id);
+-- Ensure RLS is enabled on trading_journal table
+ALTER TABLE IF EXISTS public.trading_journal ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert their own journals"
-ON public.trading_journal
-FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+-- Check and create the user policy if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'users' 
+        AND policyname = 'Users can view their own data'
+    ) THEN
+        CREATE POLICY "Users can view their own data"
+        ON public.users
+        FOR SELECT
+        USING (auth.uid() = id);
+        
+        RAISE NOTICE 'Created policy for users table';
+    ELSE
+        RAISE NOTICE 'Users policy already exists';
+    END IF;
+END $$;
 
-CREATE POLICY "Users can update their own journals"
-ON public.trading_journal
-FOR UPDATE
-USING (auth.uid() = user_id);
+-- Check and create journal policies if they don't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'trading_journal' 
+        AND policyname = 'Users can view their own journals'
+    ) THEN
+        CREATE POLICY "Users can view their own journals"
+        ON public.trading_journal
+        FOR SELECT
+        USING (auth.uid() = user_id);
+        
+        RAISE NOTICE 'Created SELECT policy for trading_journal table';
+    ELSE
+        RAISE NOTICE 'Trading journal SELECT policy already exists';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'trading_journal' 
+        AND policyname = 'Users can insert their own journals'
+    ) THEN
+        CREATE POLICY "Users can insert their own journals"
+        ON public.trading_journal
+        FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+        
+        RAISE NOTICE 'Created INSERT policy for trading_journal table';
+    ELSE
+        RAISE NOTICE 'Trading journal INSERT policy already exists';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'trading_journal' 
+        AND policyname = 'Users can update their own journals'
+    ) THEN
+        CREATE POLICY "Users can update their own journals"
+        ON public.trading_journal
+        FOR UPDATE
+        USING (auth.uid() = user_id);
+        
+        RAISE NOTICE 'Created UPDATE policy for trading_journal table';
+    ELSE
+        RAISE NOTICE 'Trading journal UPDATE policy already exists';
+    END IF;
+END $$;
     `;
 
     // Copy to clipboard
-    navigator.clipboard.writeText(setupSQL + '\n\n' + usersTableSQL + '\n\n' + journalTableSQL)
+    navigator.clipboard.writeText(setupSQL + '\n\n' + usersTableSQL + '\n\n' + journalTableSQL + '\n\n' + ensurePoliciesSQL)
       .then(() => alert("SQL copied to clipboard! Paste this in your Supabase SQL editor."))
       .catch(err => console.error("Failed to copy SQL:", err));
   };
@@ -158,6 +252,7 @@ USING (auth.uid() = user_id);
                 <li>Click "New Query"</li>
                 <li>Paste the SQL commands from the button below</li>
                 <li>Click "Run" to execute the commands</li>
+                <li><span className="font-medium">Note:</span> If you see errors like "relation already exists", that's OK! The script is designed to skip creating tables that already exist.</li>
               </ol>
               <Button 
                 onClick={createTables}
