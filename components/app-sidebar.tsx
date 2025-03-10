@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
+import { UserMenu } from "@/components/auth/user-menu"
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -116,11 +117,8 @@ export function AppSidebar() {
               <span className="sr-only">Settings</span>
             </Link>
           </Button>
-          {(!mounted || !isMobile) && <ModeToggle />}
-          <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-            <LogOut className="h-4 w-4" />
-            <span className="sr-only">Log out</span>
-          </Button>
+          <ModeToggle />
+          <UserMenu />
         </div>
       </SidebarFooter>
     </Sidebar>
