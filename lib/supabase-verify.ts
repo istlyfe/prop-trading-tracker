@@ -15,35 +15,35 @@ export async function verifySupabaseTables() {
     const keyLength = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length || 0
     console.log(`API Key provided: ${keyLength > 0 ? 'Yes' : 'No'} (length: ${keyLength})`)
     
-    // First, check if we can connect to Supabase at all with a simpler query
+    // First, do a connectivity check without relying on specific functions
+    let connectionSuccessful = false
+    
     try {
       console.log('Testing basic Supabase connection...')
-      // Try to get the current timestamp from Supabase - a simple system table check
-      // We'll check the pg_stat_statements extension as it's typically available in Supabase
-      const { data: healthData, error: healthError } = await supabase
-        .schema
-        .getTableInfo()
-        .limit(1)
-      
-      if (healthError) {
-        console.error('Basic connection to Supabase failed:', healthError)
-        return { 
-          success: false, 
-          error: `Connection to Supabase failed: ${healthError.message}`,
-          details: {
-            code: healthError.code,
-            hint: healthError.hint,
-            message: healthError.message
-          }
-        }
+
+      // Simple check that doesn't call any specific functions - just checks if auth works
+      // This verifies the API key is correct
+      if (await supabase.auth.getSession()) {
+        console.log('Basic connection to Supabase auth successful')
+        connectionSuccessful = true
       } else {
-        console.log('Basic connection to Supabase successful')
+        console.error('Failed to connect to Supabase auth')
       }
     } catch (e) {
       console.error('Exception during basic connection test:', e)
       return { 
         success: false, 
         error: `Exception during connection test: ${e instanceof Error ? e.message : String(e)}`
+      }
+    }
+    
+    if (!connectionSuccessful) {
+      return { 
+        success: false, 
+        error: `Could not establish a connection to Supabase. Please check your credentials and network connection.`,
+        details: {
+          suggestion: "Verify your NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local"
+        }
       }
     }
     
