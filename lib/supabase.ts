@@ -17,6 +17,8 @@ export type Tables = {
   users: {
     id: string
     email: string
+    name?: string
+    password?: string
     created_at: string
   }
   trading_journal: {

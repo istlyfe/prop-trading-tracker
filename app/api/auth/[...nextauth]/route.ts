@@ -1,7 +1,9 @@
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import AppleProvider from "next-auth/providers/apple"
+import CredentialsProvider from "next-auth/providers/credentials"
 import { supabase } from "@/lib/supabase"
+import bcrypt from "bcryptjs"
 
 const handler = NextAuth({
   providers: [
@@ -16,6 +18,58 @@ const handler = NextAuth({
         teamId: process.env.APPLE_TEAM_ID!,
         privateKey: process.env.APPLE_PRIVATE_KEY!,
         keyId: process.env.APPLE_KEY_ID!,
+      }
+    }),
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        try {
+          // Check if user exists in Supabase
+          const { data: user, error } = await supabase
+            .from("users")
+            .select("*")
+            .eq("email", credentials.email)
+            .single()
+
+          if (error || !user) {
+            console.error("User not found or database error:", error)
+            return null
+          }
+
+          // Check if password matches (for users who signed up with credentials)
+          if (user.password) {
+            const isValidPassword = await bcrypt.compare(
+              credentials.password,
+              user.password
+            )
+
+            if (!isValidPassword) {
+              console.error("Invalid password")
+              return null
+            }
+          } else {
+            // User exists but signed up with a provider (no password)
+            console.error("User signed up with a provider, not credentials")
+            return null
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name || null,
+          }
+        } catch (error) {
+          console.error("Error in authorization:", error)
+          return null
+        }
       }
     }),
   ],
