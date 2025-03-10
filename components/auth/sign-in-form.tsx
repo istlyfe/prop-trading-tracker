@@ -46,9 +46,20 @@ export function SignInForm() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true)
     try {
-      await signIn("google", { callbackUrl: "/dashboard" })
+      const result = await signIn("google", { 
+        callbackUrl: "/dashboard",
+        redirect: true
+      })
+      
+      if (result?.error) {
+        console.error("Error signing in with Google:", result.error)
+        setError("Failed to sign in with Google. Please try again.")
+      } else if (result?.url) {
+        window.location.href = result.url
+      }
     } catch (error) {
       console.error("Error signing in with Google:", error)
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsGoogleLoading(false)
     }
@@ -57,9 +68,20 @@ export function SignInForm() {
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true)
     try {
-      await signIn("apple", { callbackUrl: "/dashboard" })
+      const result = await signIn("apple", { 
+        callbackUrl: "/dashboard",
+        redirect: true
+      })
+      
+      if (result?.error) {
+        console.error("Error signing in with Apple:", result.error)
+        setError("Failed to sign in with Apple. Please try again.")
+      } else if (result?.url) {
+        window.location.href = result.url
+      }
     } catch (error) {
       console.error("Error signing in with Apple:", error)
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsAppleLoading(false)
     }
@@ -69,6 +91,8 @@ export function SignInForm() {
     setError(null)
     
     try {
+      console.log("Attempting to sign in with credentials:", data.email)
+      
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -76,12 +100,15 @@ export function SignInForm() {
       })
       
       if (result?.error) {
+        console.error("Sign-in error:", result.error)
         setError("Invalid email or password")
         return
       }
       
+      console.log("Sign-in successful, redirecting to dashboard")
       router.push("/dashboard")
     } catch (error) {
+      console.error("Unexpected error during sign-in:", error)
       setError("An unexpected error occurred")
     }
   }
