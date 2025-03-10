@@ -50,7 +50,13 @@ export function DatabaseCheck() {
   
   const createTables = () => {
     // Provide SQL instructions for creating tables
+    const setupSQL = `
+-- Enable UUID extension for generated IDs
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    `;
+
     const usersTableSQL = `
+-- Create users table
 CREATE TABLE public.users (
   id uuid PRIMARY KEY,
   email text UNIQUE NOT NULL,
@@ -59,10 +65,18 @@ CREATE TABLE public.users (
   created_at timestamp with time zone DEFAULT now()
 );
 
+-- Enable row level security
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for users to view their own data
+CREATE POLICY "Users can view their own data"
+ON public.users
+FOR SELECT
+USING (auth.uid() = id);
     `;
 
     const journalTableSQL = `
+-- Create trading journal table
 CREATE TABLE public.trading_journal (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id uuid REFERENCES public.users(id) NOT NULL,
@@ -70,11 +84,28 @@ CREATE TABLE public.trading_journal (
   last_updated timestamp with time zone DEFAULT now()
 );
 
+-- Enable row level security
 ALTER TABLE public.trading_journal ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for trading journal
+CREATE POLICY "Users can view their own journals"
+ON public.trading_journal
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own journals"
+ON public.trading_journal
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own journals"
+ON public.trading_journal
+FOR UPDATE
+USING (auth.uid() = user_id);
     `;
 
     // Copy to clipboard
-    navigator.clipboard.writeText(usersTableSQL + '\n\n' + journalTableSQL)
+    navigator.clipboard.writeText(setupSQL + '\n\n' + usersTableSQL + '\n\n' + journalTableSQL)
       .then(() => alert("SQL copied to clipboard! Paste this in your Supabase SQL editor."))
       .catch(err => console.error("Failed to copy SQL:", err));
   };
@@ -121,6 +152,13 @@ ALTER TABLE public.trading_journal ENABLE ROW LEVEL SECURITY;
             <div className="mt-4">
               <p className="text-sm font-semibold">Quick Fix: Create Required Tables</p>
               <p className="text-xs mt-1">Click the button below to copy SQL commands that you can run in your Supabase SQL Editor:</p>
+              <ol className="text-xs mt-2 list-decimal pl-5 space-y-1">
+                <li>Go to the Supabase dashboard and select your project</li>
+                <li>Click on "SQL Editor" in the left sidebar</li>
+                <li>Click "New Query"</li>
+                <li>Paste the SQL commands from the button below</li>
+                <li>Click "Run" to execute the commands</li>
+              </ol>
               <Button 
                 onClick={createTables}
                 size="sm"

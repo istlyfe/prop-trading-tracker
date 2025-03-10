@@ -15,11 +15,15 @@ export async function verifySupabaseTables() {
     const keyLength = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length || 0
     console.log(`API Key provided: ${keyLength > 0 ? 'Yes' : 'No'} (length: ${keyLength})`)
     
-    // First, check if we can connect to Supabase at all
+    // First, check if we can connect to Supabase at all with a simple query
     try {
-      const { data: healthData, error: healthError } = await supabase.rpc('pg_typeof', { val: 1 })
+      const { data: healthData, error: healthError } = await supabase
+        .from('_migrations')
+        .select('count(*)')
+        .limit(1)
+        .single()
       
-      if (healthError) {
+      if (healthError && healthError.code !== 'PGRST116') {
         console.error('Basic connection to Supabase failed:', healthError)
         return { 
           success: false, 
