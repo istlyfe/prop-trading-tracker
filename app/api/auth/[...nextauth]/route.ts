@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import AppleProvider from "next-auth/providers/apple"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { supabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 import bcrypt from "bcryptjs"
 
 const handler = NextAuth({
@@ -32,6 +32,8 @@ const handler = NextAuth({
         }
 
         try {
+          const supabase = getSupabase()
+          
           // Check if user exists in Supabase
           const { data: user, error } = await supabase
             .from("users")
@@ -81,6 +83,8 @@ const handler = NextAuth({
       }
       
       try {
+        const supabase = getSupabase()
+        
         // Check if user exists in Supabase
         const { data: existingUser, error: fetchError } = await supabase
           .from("users")

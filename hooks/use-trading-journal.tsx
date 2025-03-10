@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { v4 as uuidv4 } from 'uuid'
 import { parseCSV } from '@/lib/csv-parser'
 import { DailyJournalEntry, TradingJournalData, TradeEntry } from '@/types/journal'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 
 const STORAGE_KEY = 'prop-trading-journal-data'
 
@@ -40,6 +40,7 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
       try {
         // If user is authenticated, try to load from Supabase
         if (session?.user?.id) {
+          const supabase = getSupabase()
           const { data, error } = await supabase
             .from('trading_journal')
             .select('data')
@@ -98,7 +99,7 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
   // Save to storage whenever data changes
   useEffect(() => {
     if (!isLoading) {
-      // Always save to localStorage as a backup
+      // Save to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(journalData))
       }
@@ -107,11 +108,12 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
       if (session?.user?.id) {
         const saveToSupabase = async () => {
           try {
+            const supabase = getSupabase()
             const { error } = await supabase
               .from('trading_journal')
               .upsert({
                 user_id: session.user.id,
-                data: JSON.stringify(journalData),
+                data: journalData,
                 last_updated: new Date().toISOString(),
               })
               
@@ -321,15 +323,22 @@ export function TradingJournalProvider({ children }: { children: React.ReactNode
   }
 
   const clearAllData = async () => {
+    // Clear local state
     setJournalData(defaultJournalData)
+    
+    // Clear localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY)
+    }
     
     // If authenticated, also clear from Supabase
     if (session?.user?.id) {
       try {
+        const supabase = getSupabase()
         const { error } = await supabase
           .from('trading_journal')
           .update({
-            data: JSON.stringify(defaultJournalData),
+            data: defaultJournalData,
             last_updated: new Date().toISOString(),
           })
           .eq('user_id', session.user.id)

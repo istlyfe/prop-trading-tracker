@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { v4 as uuidv4 } from "uuid"
-import { supabase } from "@/lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 
 // Validation schema
 const registerSchema = z.object({
@@ -17,6 +17,8 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabase()
+    
     // Parse and validate request body
     const body = await request.json()
     const validation = registerSchema.safeParse(body)
